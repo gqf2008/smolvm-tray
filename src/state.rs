@@ -97,6 +97,9 @@ pub struct Worker {
     ui: Box<dyn UiSink>,
     log: Logger,
     last: Option<UiState>,
+    /// Read once at startup and after each toggle — never re-spawn reg.exe
+    /// every refresh (console flash + needless spawn).
+    autostart_cached: bool,
 }
 
 impl Worker {
@@ -110,7 +113,8 @@ impl Worker {
     ) -> Sender<WorkerMsg> {
         let (tx, rx) = std::sync::mpsc::channel();
         let cancel = Arc::new(AtomicBool::new(false));
-        let worker = Worker { rx, cancel, smol, ui, log, last: None };
+        let autostart_cached = crate::platform::autostart_enabled();
+        let worker = Worker { rx, cancel, smol, ui, log, last: None, autostart_cached };
         std::thread::Builder::new()
             .name("smolvm-tray-worker".into())
             .spawn(move || worker.run())
@@ -184,7 +188,7 @@ impl Worker {
         let state = UiState {
             health,
             tooltip: format!("smolvm 服务台 · {}/{} 在线", health.up(), Health::TOTAL),
-            autostart_checked: crate::platform::autostart_enabled(),
+            autostart_checked: self.autostart_cached,
         };
         self.last = Some(state.clone());
         self.push(&state);
@@ -238,8 +242,9 @@ impl Worker {
                 crate::platform::open_dir(self.log.path().parent().unwrap_or(std::path::Path::new(".")));
             }
             UserAction::ToggleAutostart => {
-                let on = !crate::platform::autostart_enabled();
+                let on = !self.autostart_cached;
                 crate::platform::set_autostart(on);
+                self.autostart_cached = on;
                 self.log.line(&format!("autostart -> {on}"));
                 let mut state = self.last.clone().unwrap_or_else(|| self.current_ui_buffer());
                 state.autostart_checked = on;
@@ -259,7 +264,7 @@ impl Worker {
         UiState {
             health: Health { vm, mcp_port: false, mcp_loop: false, cdp_port: false, cdp_loop: false },
             tooltip: "smolvm 服务台".into(),
-            autostart_checked: crate::platform::autostart_enabled(),
+            autostart_checked: self.autostart_cached,
         }
     }
 

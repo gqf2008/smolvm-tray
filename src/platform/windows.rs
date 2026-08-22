@@ -8,6 +8,12 @@ use std::process::{Command, Stdio};
 use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE};
 use windows_sys::Win32::System::Threading::CreateMutexW;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 const MUTEX_NAME: &str = "smolvm-tray-v2";
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
 const RUN_VALUE: &str = "smolvm-tray";
@@ -41,11 +47,19 @@ pub fn log_dir() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
+/// reg.exe is a console app too — without CREATE_NO_WINDOW every autostart
+/// check (8s refresh) flashes a black console from this GUI parent.
+fn reg_args(args: &[&str]) -> Command {
+    let mut c = Command::new("reg");
+    c.args(args);
+    c.creation_flags(CREATE_NO_WINDOW);
+    c.stdout(Stdio::null());
+    c.stderr(Stdio::null());
+    c
+}
+
 pub fn autostart_enabled() -> bool {
-    Command::new("reg")
-        .args(["query", RUN_KEY, "/v", RUN_VALUE])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+    reg_args(&["query", RUN_KEY, "/v", RUN_VALUE])
         .status()
         .map(|st| st.success())
         .unwrap_or(false)
@@ -53,20 +67,14 @@ pub fn autostart_enabled() -> bool {
 
 pub fn set_autostart(on: bool) {
     if on {
-        let exe = std::env::current_exe().unwrap_or_default();
-        let _ = Command::new("reg")
-            .args(["add", RUN_KEY, "/v", RUN_VALUE, "/t", "REG_SZ", "/d"])
-            .arg(&exe)
-            .arg("/f")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        if let Some(exe) = std::env::current_exe().ok() {
+            let mut c = reg_args(&["add", RUN_KEY, "/v", RUN_VALUE, "/t", "REG_SZ", "/d"]);
+            c.arg(&exe);
+            c.arg("/f");
+            let _ = c.status();
+        }
     } else {
-        let _ = Command::new("reg")
-            .args(["delete", RUN_KEY, "/v", RUN_VALUE, "/f"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+        let _ = reg_args(&["delete", RUN_KEY, "/v", RUN_VALUE, "/f"]).status();
     }
 }
 
