@@ -112,7 +112,7 @@ jobs:
             'NOTE: smolvm build version 1.8.3 — update URLs when version bumps.' \
             'Linux tray icon needs a StatusNotifierItem host (GNOME: AppIndicator extension).' \
             > out/README-KITE.txt
-          tar czf ../${{ matrix.out }} -C out .
+          tar czf ${{ matrix.out }} -C out .
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || 'v0.1.0' }}
