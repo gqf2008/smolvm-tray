@@ -11,9 +11,9 @@ export component AppTray inherits SystemTrayIcon {
     in-out property <bool> can_open_mcp: false;
     in-out property <bool> can_restart_chromium: false;
     in-out property <bool> autostart_checked: false;
+    in-out property <string> start_stop_label: "▶ 启动服务（确保在线）";
 
-    callback action-start();
-    callback action-stop();
+    callback action-toggle();
     callback action-open-cdp();
     callback action-open-mcp();
     callback action-restart-chromium();
@@ -34,13 +34,12 @@ export component AppTray inherits SystemTrayIcon {
         MenuItem { title: root.list_cdp_port; enabled: false; }
         MenuItem { title: root.list_cdp_loop; enabled: false; }
         MenuSeparator {}
-        MenuItem { title: "▶ 启动服务（确保在线）"; activated => { root.action-start(); } }
-        MenuItem { title: "⏹ 停止服务"; activated => { root.action-stop(); } }
+        MenuItem { title: root.start_stop_label; activated => { root.action-toggle(); } }
         MenuSeparator {}
         MenuItem { title: "打开 CDP 控制台 (9222)"; enabled: root.can_open_cdp; activated => { root.action-open-cdp(); } }
-        MenuItem { title: "打开 MCP 端点 (8090)"; enabled: root.can_open_mcp; activated => { root.action-open-mcp(); } }
         MenuSeparator {}
         Menu { title: "高级（运维）";
+            MenuItem { title: "打开 MCP 端点 (8090)"; enabled: root.can_open_mcp; activated => { root.action-open-mcp(); } }
             MenuItem { title: "重启 CDP 浏览器"; enabled: root.can_restart_chromium; activated => { root.action-restart-chromium(); } }
             MenuItem { title: "打开日志目录"; activated => { root.action-open-logs(); } }
         }

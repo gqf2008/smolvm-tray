@@ -76,8 +76,8 @@ pub trait UiSink: Send {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UserAction {
-    StartAll,
-    StopAll,
+    /// One switch in the menu: start when stopped, stop when running.
+    ToggleService,
     OpenCdp,
     OpenMcp,
     RestartChromium,
@@ -200,6 +200,13 @@ impl Worker {
 
     fn handle(&mut self, action: UserAction) {
         match action {
+            UserAction::ToggleService => {
+                if self.smol.status() == VmState::Running {
+                    self.handle(UserAction::StopAll);
+                } else {
+                    self.handle(UserAction::StartAll);
+                }
+            }
             UserAction::StartAll => {
                 self.start_vm();
                 self.start_guest_loop(config::GUEST_CDP_SERVER, config::GUEST_CDP_PROBE);

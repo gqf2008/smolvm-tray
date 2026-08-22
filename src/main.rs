@@ -49,6 +49,8 @@ impl UiSink for UiSinkImpl {
             t.set_can_open_mcp(health.mcp_port);
             t.set_can_restart_chromium(health.vm);
             t.set_autostart_checked(autostart);
+            // One switch, not two concepts: running -> "stop", stopped -> "start".
+            t.set_start_stop_label(if health.vm { "⏹ 停止服务" } else { "▶ 启动服务（确保在线）" }.into());
         });
     }
 
@@ -85,8 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let act = |tx: &Sender<WorkerMsg>, a: UserAction| {
         let _ = tx.send(WorkerMsg::Act(a));
     };
-    tray.on_action_start({ let tx = tx.clone(); move || act(&tx, UserAction::StartAll) });
-    tray.on_action_stop({ let tx = tx.clone(); move || act(&tx, UserAction::StopAll) });
+    tray.on_action_toggle({ let tx = tx.clone(); move || act(&tx, UserAction::ToggleService) });
     tray.on_action_open_cdp({ let tx = tx.clone(); move || act(&tx, UserAction::OpenCdp) });
     tray.on_action_open_mcp({ let tx = tx.clone(); move || act(&tx, UserAction::OpenMcp) });
     tray.on_action_restart_chromium({ let tx = tx.clone(); move || act(&tx, UserAction::RestartChromium) });
