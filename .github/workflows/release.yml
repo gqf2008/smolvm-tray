@@ -1,0 +1,103 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-tray:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: smolvm-tray-windows-x64
+            ext: .exe
+          - os: macos-14
+            target: aarch64-apple-darwin
+            name: smolvm-tray-macos-arm64
+            ext: ''
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: smolvm-tray-linux-x64
+            ext: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux build deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libfontconfig1-dev
+      - run: cargo build --release --locked
+      - run: cargo test --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: target/release/smolvm-tray${{ matrix.ext }}
+
+  # One-click bundles for macOS / Linux: official smolvm binary + tray +
+  # kite.smolvmachine (pulled from the latest release asset of THIS repo).
+  # Windows ships via the local binary-distribution layout (see README).
+  assemble:
+    needs: build-tray
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            smolvm_asset: smolvm-1.8.3-darwin-arm64.tar.gz
+            tray_artifact: smolvm-tray-macos-arm64
+            out: smolvm-kite-macos-arm64.zip
+          - os: ubuntu-latest
+            smolvm_asset: smolvm-1.8.3-linux-x86_64.tar.gz
+            tray_artifact: smolvm-tray-linux-x64
+            out: smolvm-kite-linux-x64.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Download official smolvm release
+        run: |
+          curl -sSL -o smolvm.tar.gz "https://github.com/smol-machines/smolvm/releases/download/v1.8.3/${{ matrix.smolvm_asset }}"
+          tar xzf smolvm.tar.gz
+          mv smolvm-* smolvm-base
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.tray_artifact }}
+          path: tray
+      - name: Download kite.smolvmachine bundle
+        run: |
+          gh release download --clobber --pattern 'kite.smolvmachine' || echo "no bundle asset yet — assemble without it"
+      - name: Pack the zip
+        run: |
+          mkdir -p out
+          cp -r smolvm-base/* out/
+          cp tray/smolvm-tray* out/
+          cp kite.smolvmachine out/ 2>/dev/null || true
+          cat > out/README-KITE.txt <<'EOF'
+          smolvm kite bundle
+          ==================
+          1. Unpack this zip (typically to ~/smolvm-kite).
+          2. chmod +x out/smolvm out/smolvm-bin && run: ./smolvm --version
+          3. Put 'smolvm-tray' somewhere on PATH or run it from this dir.
+          4. Start the tray. First run: it auto-creates the kite machine from
+             kite.smolvmachine (if present), applies the -p published ports
+             and brings both services up. Every start is idempotent.
+          5. Guest services: /root/kite-server.sh + /root/cdp-server.sh
+             watchdogs (already inside the VM image).
+          NOTE: this is the day build version 1.8.3 — update URLs when version
+          bumps. Linux tray icon needs a StatusNotifierItem host (GNOME:
+          AppIndicator extension).
+          EOF
+          cd out && zip -r ../${{ matrix.out }} . && cd ..
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.out }}
+          fail_on_unmatched_files: true
