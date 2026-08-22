@@ -7,6 +7,12 @@
 # (e.g. the known "broken network stack" instance) is killed after 2
 # consecutive probe failures, same as a dead one.
 # Launched with: machine exec --name kite -- sh /root/cdp-server.sh
+# Idempotent: if this watchdog loop is already alive (pid file + kill -0),
+# a second launch exits immediately — no double watchdogs, no double
+# chromium/socat.
+if test -f /tmp/.cdp-loop-pid && kill -0 $(cat /tmp/.cdp-loop-pid) 2>/dev/null; then
+  exit 0
+fi
 setsid sh -c '
   : > /tmp/.cdp-watchdog.log
   echo "$$" > /tmp/.cdp-loop-pid

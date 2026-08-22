@@ -6,6 +6,11 @@
 # v5: depth-2 health check — a live-process-but-broken kite (HTTP no answer)
 # is killed after 2 consecutive failures, the same way a dead one is respawned.
 # Launched with: machine exec --name kite -- sh /root/kite-server.sh
+# Idempotent: if this watchdog loop is already alive (pid file + kill -0),
+# a second launch exits immediately — no double watchdogs, no double kite.
+if test -f /tmp/.kite-loop-pid && kill -0 $(cat /tmp/.kite-loop-pid) 2>/dev/null; then
+  exit 0
+fi
 setsid sh -c '
   : > /tmp/.kite-watchdog.log
   echo "$$" > /tmp/.kite-loop-pid

@@ -64,6 +64,15 @@ pub struct UiState {
     pub health: Health,
     pub tooltip: String,
     pub autostart_checked: bool,
+    /// A start/stop operation in flight — the menu switch is disabled then.
+    pub phase: ServicePhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServicePhase {
+    Idle,
+    Starting,
+    Stopping,
 }
 
 /// UI side of the boundary — decouples the state machine from Slint so the
@@ -103,6 +112,9 @@ pub struct Worker {
     /// Read once at startup and after each toggle — never re-spawn reg.exe
     /// every refresh (console flash + needless spawn).
     autostart_cached: bool,
+    /// A start/stop operation in flight: the switch is disabled and repeat
+    /// toggle messages are dropped.
+    phase: ServicePhase,
 }
 
 impl Worker {
@@ -117,7 +129,7 @@ impl Worker {
         let (tx, rx) = std::sync::mpsc::channel();
         let cancel = Arc::new(AtomicBool::new(false));
         let autostart_cached = crate::platform::autostart_enabled();
-        let worker = Worker { rx, cancel, smol, ui, log, last: None, autostart_cached };
+        let worker = Worker { rx, cancel, smol, ui, log, last: None, autostart_cached, phase: ServicePhase::Idle };
         std::thread::Builder::new()
             .name("smolvm-tray-worker".into())
             .spawn(move || worker.run())
@@ -133,6 +145,14 @@ impl Worker {
         loop {
             match self.rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(WorkerMsg::Act(action)) => {
+                    // One operation at a time: while a start/stop is in flight
+                    // the menu switch is disabled, and a queued toggle is
+                    // dropped rather than re-run (the steps are idempotent but
+                    // re-probing wastes seconds).
+                    if matches!(action, UserAction::ToggleService) && self.phase != ServicePhase::Idle {
+                        self.log.line("toggle dropped: start/stop already in progress");
+                        continue;
+                    }
                     self.log.line(&format!("action: {action:?} (cancelling refresh)"));
                     self.cancel.store(true, Ordering::SeqCst);
                     self.handle(action);
@@ -192,6 +212,7 @@ impl Worker {
             health,
             tooltip: format!("smolvm 服务台 · {}/{} 在线", health.up(), Health::TOTAL),
             autostart_checked: self.autostart_cached,
+            phase: self.phase,
         };
         self.last = Some(state.clone());
         self.push(&state);
@@ -262,23 +283,45 @@ impl Worker {
             health: Health { vm, mcp_port: false, mcp_loop: false, cdp_port: false, cdp_loop: false },
             tooltip: "smolvm 服务台".into(),
             autostart_checked: self.autostart_cached,
+            phase: self.phase,
         }
     }
 
     fn start_all(&mut self) {
+        // Switch disabled + label "启动中…" for the whole op.
+        self.set_phase(ServicePhase::Starting);
         self.start_vm();
         self.start_guest_loop(config::GUEST_CDP_SERVER, config::GUEST_CDP_PROBE);
         self.start_guest_loop(config::GUEST_KITE_SERVER, config::GUEST_KITE_PROBE);
         self.log.line("start-all finished");
+        self.set_phase(ServicePhase::Idle);
         self.refresh();
     }
 
     fn stop_all(&mut self) {
+        self.set_phase(ServicePhase::Stopping);
         self.log.line("stopping all");
         let out = self.smol.stop();
         self.log.line(&format!("machine stop: {}", out.trim()));
         std::thread::sleep(Duration::from_secs(2));
+        self.set_phase(ServicePhase::Idle);
         self.refresh();
+    }
+
+    /// Broadcast a phase-only update (menu switch label/enabled) using the
+    /// last known health — no probing, instant feedback.
+    fn set_phase(&mut self, phase: ServicePhase) {
+        self.phase = phase;
+        let mut state = self.last.clone().unwrap_or_else(|| UiState {
+            health: Health { vm: false, mcp_port: false, mcp_loop: false, cdp_port: false, cdp_loop: false },
+            tooltip: "smolvm 服务台".into(),
+            autostart_checked: self.autostart_cached,
+            phase,
+        });
+        state.phase = phase;
+        self.last = Some(state.clone());
+        self.log.line(&format!("phase -> {phase:?}"));
+        self.push(&state);
     }
 
     /// VM up (idempotent) with `-p` insurance and a 120s boot poll, then both

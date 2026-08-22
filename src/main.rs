@@ -37,6 +37,7 @@ impl UiSink for UiSinkImpl {
         let level = health.level();
         let tooltip = state.tooltip.clone();
         let autostart = state.autostart_checked;
+        let phase = state.phase;
         push_to_ui(weak, move |t| {
             t.set_tray_icon(icon::render_icon(level.rgb()));
             t.set_tray_tooltip(tooltip.into());
@@ -49,8 +50,21 @@ impl UiSink for UiSinkImpl {
             t.set_can_open_mcp(health.mcp_port);
             t.set_can_restart_chromium(health.vm);
             t.set_autostart_checked(autostart);
-            // One switch, not two concepts: running -> "stop", stopped -> "start".
-            t.set_start_stop_label(if health.vm { "⏹ 停止服务" } else { "▶ 启动服务（确保在线）" }.into());
+            // One switch, never two concepts — and never clickable while a
+            // start/stop is in flight.
+            let (label, enabled) = match phase {
+                state::ServicePhase::Starting => ("⏳ 启动中…（请勿重复点击）", false),
+                state::ServicePhase::Stopping => ("⏳ 停止中…", false),
+                state::ServicePhase::Idle => {
+                    if health.vm {
+                        ("⏹ 停止服务", true)
+                    } else {
+                        ("▶ 启动服务（确保在线）", true)
+                    }
+                }
+            };
+            t.set_start_stop_label(label.into());
+            t.set_start_stop_enabled(enabled);
         });
     }
 

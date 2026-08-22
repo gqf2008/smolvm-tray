@@ -12,6 +12,7 @@ export component AppTray inherits SystemTrayIcon {
     in-out property <bool> can_restart_chromium: false;
     in-out property <bool> autostart_checked: false;
     in-out property <string> start_stop_label: "▶ 启动服务（确保在线）";
+    in-out property <bool> start_stop_enabled: true;
 
     callback action-toggle();
     callback action-open-cdp();
@@ -34,7 +35,7 @@ export component AppTray inherits SystemTrayIcon {
         MenuItem { title: root.list_cdp_port; enabled: false; }
         MenuItem { title: root.list_cdp_loop; enabled: false; }
         MenuSeparator {}
-        MenuItem { title: root.start_stop_label; activated => { root.action-toggle(); } }
+        MenuItem { title: root.start_stop_label; enabled: root.start_stop_enabled; activated => { root.action-toggle(); } }
         MenuSeparator {}
         MenuItem { title: "打开 CDP 控制台 (9222)"; enabled: root.can_open_cdp; activated => { root.action-open-cdp(); } }
         MenuSeparator {}
