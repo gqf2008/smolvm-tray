@@ -21,7 +21,10 @@ setsid sh -c '
       echo $! > /tmp/.kite-pid
       fails=0
       echo "$(date) kite launched pid $!" >> /tmp/.kite-watchdog.log
-    elif curl -sf -m 2 -o /dev/null http://127.0.0.1:8090/ 2>/dev/null; then
+    elif curl -s -m 2 -o /dev/null http://127.0.0.1:8090/ 2>/dev/null; then
+      # Any HTTP answer counts as alive (kite returns 404 on / — the real
+      # endpoint is /mcp; `curl -f` would misjudge that as broken and kill
+      # the healthy process in a restart loop).
       fails=0
     else
       fails=$((fails+1))

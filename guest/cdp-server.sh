@@ -19,7 +19,7 @@ setsid sh -c '
         echo $! > /tmp/.cdp-chromium.pid
         fails=0
         echo "$(date) chromium launched pid $!" >> /tmp/.cdp-watchdog.log
-      elif curl -sf -m 2 -o /dev/null http://127.0.0.1:9223/json/version 2>/dev/null; then
+      elif curl -s -m 2 -o /dev/null http://127.0.0.1:9223/json/version 2>/dev/null; then
         fails=0
       else
         fails=$((fails+1))

@@ -11,6 +11,12 @@ use std::process::{Command, ExitStatus, Stdio};
 use std::thread::{self};
 use std::time::{Duration, Instant};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VmState {
     Running,
@@ -80,6 +86,12 @@ impl Smol {
     fn cmd(&self, args: &[&str]) -> Command {
         let mut c = Command::new(&self.bin);
         c.args(args);
+        // smolvm.exe is a console app. A GUI parent (windows_subsystem=windows)
+        // spawning it without this flag gets a brand-new console window per
+        // launch — the 8s-refresh black-box flashing. CREATE_NO_WINDOW when
+        // stdio is redirected/null, no console is created.
+        #[cfg(windows)]
+        c.creation_flags(CREATE_NO_WINDOW);
         c
     }
 
