@@ -84,6 +84,9 @@ pub enum UserAction {
     OpenLogs,
     ToggleAutostart,
     Exit,
+    /// Internal: launch-time bootstrap (start_all) — not from the menu.
+    #[doc(hidden)]
+    InitialStart,
 }
 
 pub enum WorkerMsg {
@@ -120,7 +123,7 @@ impl Worker {
             .spawn(move || worker.run())
             .expect("spawn worker thread");
         if autostart_on_launch {
-            let _ = tx.send(WorkerMsg::Act(UserAction::StartAll));
+            let _ = tx.send(WorkerMsg::Act(UserAction::InitialStart));
         }
         tx
     }
@@ -202,25 +205,12 @@ impl Worker {
         match action {
             UserAction::ToggleService => {
                 if self.smol.status() == VmState::Running {
-                    self.handle(UserAction::StopAll);
+                    self.stop_all();
                 } else {
-                    self.handle(UserAction::StartAll);
+                    self.start_all();
                 }
             }
-            UserAction::StartAll => {
-                self.start_vm();
-                self.start_guest_loop(config::GUEST_CDP_SERVER, config::GUEST_CDP_PROBE);
-                self.start_guest_loop(config::GUEST_KITE_SERVER, config::GUEST_KITE_PROBE);
-                self.log.line("start-all finished");
-                self.refresh();
-            }
-            UserAction::StopAll => {
-                self.log.line("stopping all");
-                let out = self.smol.stop();
-                self.log.line(&format!("machine stop: {}", out.trim()));
-                std::thread::sleep(Duration::from_secs(2));
-                self.refresh();
-            }
+            UserAction::InitialStart => self.start_all(),
             UserAction::OpenCdp => {
                 crate::platform::open_url(&format!("http://127.0.0.1:{}", config::CDP_PORT));
             }
@@ -273,6 +263,22 @@ impl Worker {
             tooltip: "smolvm 服务台".into(),
             autostart_checked: self.autostart_cached,
         }
+    }
+
+    fn start_all(&mut self) {
+        self.start_vm();
+        self.start_guest_loop(config::GUEST_CDP_SERVER, config::GUEST_CDP_PROBE);
+        self.start_guest_loop(config::GUEST_KITE_SERVER, config::GUEST_KITE_PROBE);
+        self.log.line("start-all finished");
+        self.refresh();
+    }
+
+    fn stop_all(&mut self) {
+        self.log.line("stopping all");
+        let out = self.smol.stop();
+        self.log.line(&format!("machine stop: {}", out.trim()));
+        std::thread::sleep(Duration::from_secs(2));
+        self.refresh();
     }
 
     /// VM up (idempotent) with `-p` insurance and a 120s boot poll, then both
