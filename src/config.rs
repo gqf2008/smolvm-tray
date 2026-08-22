@@ -85,6 +85,26 @@ pub fn autostart_on_launch() -> bool {
     std::env::var("SMOLVM_TRAY_NO_AUTOSTART").map(|v| v != "1").unwrap_or(true)
 }
 
+/// Optional `.smolmachine` bundle: `$SMOLVM_TRAY_PACK`, or
+/// `kite.smolvmachine` beside the tray exe. Used for first-run
+/// self-initialization when the machine does not exist.
+pub fn pack_file() -> Option<PathBuf> {
+    if let Ok(v) = std::env::var("SMOLVM_TRAY_PACK") {
+        if !v.is_empty() {
+            return Some(PathBuf::from(v));
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let candidate = dir.join("kite.smolvmachine");
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

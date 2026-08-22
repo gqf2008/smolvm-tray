@@ -112,6 +112,29 @@ impl Smol {
         }
     }
 
+    /// Whether the machine exists at all (first-run self-initialization
+    /// trigger: a missing machine must be created from the bundle once).
+    pub fn machine_exists(&self) -> bool {
+        let out = self.run(&["machine", "ls"], STATUS_TIMEOUT);
+        out.lines().any(|l| l.contains(crate::config::VM_NAME))
+    }
+
+    /// First-run: `machine create --name kite --from <bundle>`. The `-p`
+    /// published ports are (re)applied later by `update_ports` insurance.
+    pub fn create_from_pack(&self, pack: &std::path::Path) -> String {
+        let p = pack.to_string_lossy().into_owned();
+        let args = vec![
+            "machine".into(),
+            "create".into(),
+            "--name".into(),
+            crate::config::VM_NAME.into(),
+            "--from".into(),
+            p,
+        ];
+        let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+        self.run(&arg_refs, Duration::from_secs(120))
+    }
+
     /// Run a guest command via `machine exec` (argv passed verbatim).
     pub fn exec(&self, guest_argv: &[&str], timeout: Duration) -> String {
         let mut args = vec!["machine", "exec", "--name", crate::config::VM_NAME, "--"];

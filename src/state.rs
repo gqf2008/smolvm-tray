@@ -290,12 +290,35 @@ impl Worker {
     fn start_all(&mut self) {
         // Switch disabled + label "启动中…" for the whole op.
         self.set_phase(ServicePhase::Starting);
+        self.ensure_machine();
         self.start_vm();
         self.start_guest_loop(config::GUEST_CDP_SERVER, config::GUEST_CDP_PROBE);
         self.start_guest_loop(config::GUEST_KITE_SERVER, config::GUEST_KITE_PROBE);
         self.log.line("start-all finished");
         self.set_phase(ServicePhase::Idle);
         self.refresh();
+    }
+
+    /// First run on a fresh host: the machine does not exist yet — create it
+    /// from the bundled `.smolmachine` (exe-dir or $SMOLVM_TRAY_PACK). Without
+    /// a bundle, fail fast with a clear message instead of waiting 120 s.
+    fn ensure_machine(&mut self) {
+        if self.smol.machine_exists() {
+            return;
+        }
+        let Some(pack) = config::pack_file() else {
+            self.log.line("machine 'kite' missing and no kite.smolvmachine bundle found — manual machine create required");
+            let mut state = self.last.clone().unwrap_or_else(|| self.current_ui_buffer());
+            state.tooltip = "缺机器：请放 kite.smolvmachine 在托盘旁或设 SMOLVM_TRAY_PACK".into();
+            self.push(&state);
+            return;
+        };
+        self.log.line(&format!("machine missing — initializing from {}", pack.display()));
+        let out = self.smol.create_from_pack(&pack);
+        self.log.line(&format!("machine create --from: {}", out.trim()));
+        if !self.smol.machine_exists() {
+            self.log.line("WARN: create --from did not produce the machine");
+        }
     }
 
     fn stop_all(&mut self) {
