@@ -32,6 +32,22 @@ three (see [.github/workflows/build.yml](.github/workflows/build.yml)).
   `~/Library/Logs/smolvm-tray.log` / `$XDG_STATE_HOME`(fallback `~/.local/state`)
   per platform.
 
+## Install & first run
+
+**Zero-config by design.** The tray self-initializes: on first launch it
+checks whether the `kite` machine exists; if it does not, it creates it from
+`kite.smolvmachine` (beside the tray exe, or `$SMOLVM_TRAY_PACK`), applies
+the `-p` published ports and brings everything up. No manual steps.
+
+- **Windows**: drop `smolvm-tray.exe` into your smolvm binary-directory
+  (e.g. `D:\smolvm-1.8.3-windows-x86_64`) together with `kite.smolvmachine`.
+- **macOS / Linux**: built bundles (`smolvm-kite-{macos-arm64,linux-x64}.zip`)
+  from the release workflow contain the official smolvm binary + tray +
+  `kite.smolvmachine` — unpack, `./smolvm --version`, run the tray.
+- Without a bundle and without a machine the tray fails fast (red icon,
+  tooltip hint) instead of waiting — a missing machine is reported in
+  seconds, and the README in the release zip covers the steps.
+
 ## Configuration
 
 | Env var | Meaning |
