@@ -63,11 +63,11 @@ jobs:
           - os: macos-14
             smolvm_asset: smolvm-1.8.3-darwin-arm64.tar.gz
             tray_artifact: smolvm-tray-macos-arm64
-            out: smolvm-kite-macos-arm64.zip
+            out: smolvm-kite-macos-arm64.tar.gz
           - os: ubuntu-latest
             smolvm_asset: smolvm-1.8.3-linux-x86_64.tar.gz
             tray_artifact: smolvm-tray-linux-x64
-            out: smolvm-kite-linux-x64.zip
+            out: smolvm-kite-linux-x64.tar.gz
     runs-on: ${{ matrix.os }}
     env:
       GH_REPO: ${{ github.repository }}
@@ -95,13 +95,13 @@ jobs:
           # -a: preserve symlinks (agent-rootfs sbin/* -> busybox links dangle on the host)
           cp -a smolvm-base/. out/
           cp tray/smolvm-tray* out/
-          # some dist files are root-only (000/400); make everything readable for zip
-          chmod -R u+rwX,go+rX out/ || true
+          # some dist files are root-only (000/400); tar tolerates them, zip does not
+          chmod -R u+rwX out/ || true
           cp kite.smolvmachine out/ 2>/dev/null || true
           cat > out/README-KITE.txt <<'EOF'
           smolvm kite bundle
           ==================
-          1. Unpack this zip (typically to ~/smolvm-kite).
+          1. Unpack this tarball (typically to ~/smolvm-kite).
           2. chmod +x out/smolvm out/smolvm-bin && run: ./smolvm --version
           3. Put 'smolvm-tray' somewhere on PATH or run it from this dir.
           4. Start the tray. First run: it auto-creates the kite machine from
@@ -113,7 +113,7 @@ jobs:
           bumps. Linux tray icon needs a StatusNotifierItem host (GNOME:
           AppIndicator extension).
           EOF
-          cd out && zip -r ../${{ matrix.out }} . && cd ..
+          tar czf ../${{ matrix.out }} -C out .
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || 'v0.1.0' }}
