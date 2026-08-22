@@ -92,7 +92,8 @@ jobs:
       - name: Pack the zip
         run: |
           mkdir -p out
-          cp -r smolvm-base/* out/
+          # -a: preserve symlinks (agent-rootfs sbin/* -> busybox links dangle on the host)
+          cp -a smolvm-base/. out/
           cp tray/smolvm-tray* out/
           cp kite.smolvmachine out/ 2>/dev/null || true
           cat > out/README-KITE.txt <<'EOF'
