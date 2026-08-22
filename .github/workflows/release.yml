@@ -4,6 +4,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to attach bundles to'
+        default: 'v0.1.0'
 
 env:
   CARGO_TERM_COLOR: always
@@ -48,7 +52,7 @@ jobs:
   # Windows ships via the local binary-distribution layout (see README).
   assemble:
     needs: build-tray
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +78,7 @@ jobs:
           path: tray
       - name: Download kite.smolvmachine bundle
         run: |
-          gh release download --clobber --pattern 'kite.smolvmachine' || echo "no bundle asset yet — assemble without it"
+          gh release download "${{ inputs.tag || 'v0.1.0' }}" --clobber --pattern 'kite.smolvmachine*' || echo "no bundle asset yet — assemble without it"
       - name: Pack the zip
         run: |
           mkdir -p out
@@ -99,5 +103,6 @@ jobs:
           cd out && zip -r ../${{ matrix.out }} . && cd ..
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || 'v0.1.0' }}
           files: ${{ matrix.out }}
           fail_on_unmatched_files: true
