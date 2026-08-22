@@ -98,21 +98,20 @@ jobs:
           # some dist files are root-only (000/400); tar tolerates them, zip does not
           chmod -R u+rwX out/ || true
           cp kite.smolvmachine out/ 2>/dev/null || true
-          cat > out/README-KITE.txt <<'EOF'
-          smolvm kite bundle
-          ==================
-          1. Unpack this tarball (typically to ~/smolvm-kite).
-          2. chmod +x out/smolvm out/smolvm-bin && run: ./smolvm --version
-          3. Put 'smolvm-tray' somewhere on PATH or run it from this dir.
-          4. Start the tray. First run: it auto-creates the kite machine from
-             kite.smolvmachine (if present), applies the -p published ports
-             and brings both services up. Every start is idempotent.
-          5. Guest services: /root/kite-server.sh + /root/cdp-server.sh
-             watchdogs (already inside the VM image).
-          NOTE: this is the day build version 1.8.3 — update URLs when version
-          bumps. Linux tray icon needs a StatusNotifierItem host (GNOME:
-          AppIndicator extension).
-          EOF
+          printf '%s\n' \
+            'smolvm kite bundle' \
+            '==================' \
+            '1. Unpack this tarball (typically to ~/smolvm-kite).' \
+            '2. chmod +x smolvm smolvm-bin && run: ./smolvm --version' \
+            "3. Put 'smolvm-tray' somewhere on PATH or run it from this dir." \
+            '4. Start the tray. First run: it auto-creates the kite machine from' \
+            '   kite.smolvmachine (if present), applies the -p published ports' \
+            '   and brings both services up. Every start is idempotent.' \
+            '5. Guest services: /root/kite-server.sh + /root/cdp-server.sh' \
+            '   watchdogs (already inside the VM image).' \
+            'NOTE: smolvm build version 1.8.3 — update URLs when version bumps.' \
+            'Linux tray icon needs a StatusNotifierItem host (GNOME: AppIndicator extension).' \
+            > out/README-KITE.txt
           tar czf ../${{ matrix.out }} -C out .
       - uses: softprops/action-gh-release@v2
         with:
