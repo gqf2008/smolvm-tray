@@ -97,7 +97,8 @@ jobs:
           cp tray/smolvm-tray* out/
           # some dist files are root-only (000/400); tar tolerates them, zip does not
           chmod -R u+rwX out/ || true
-          cp kite.smolvmachine out/ 2>/dev/null || true
+          # normalize the bundle filename to what the tray looks for
+          cp kite.smolvmachine.smolmachine out/kite.smolvmachine 2>/dev/null || cp kite.smolvmachine* out/ 2>/dev/null || true
           printf '%s\n' \
             'smolvm kite bundle' \
             '==================' \
