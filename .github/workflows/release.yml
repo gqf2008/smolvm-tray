@@ -12,6 +12,9 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+
 jobs:
   build-tray:
     strategy:
@@ -66,17 +69,24 @@ jobs:
             tray_artifact: smolvm-tray-linux-x64
             out: smolvm-kite-linux-x64.zip
     runs-on: ${{ matrix.os }}
+    env:
+      GH_REPO: ${{ github.repository }}
     steps:
+      - uses: actions/checkout@v4
       - name: Download official smolvm release
         run: |
           curl -sSL -o smolvm.tar.gz "https://github.com/smol-machines/smolvm/releases/download/v1.8.3/${{ matrix.smolvm_asset }}"
-          tar xzf smolvm.tar.gz
-          mv smolvm-* smolvm-base
+          mkdir -p unpack && tar xzf smolvm.tar.gz -C unpack
+          mv unpack/smolvm-*/ smolvm-base
+          # release-tar files are read-only; make them writable for zip/cp
+          chmod -R u+w smolvm-base
       - uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.tray_artifact }}
           path: tray
       - name: Download kite.smolvmachine bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release download "${{ inputs.tag || 'v0.1.0' }}" --clobber --pattern 'kite.smolvmachine*' || echo "no bundle asset yet — assemble without it"
       - name: Pack the zip
