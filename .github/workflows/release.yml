@@ -95,6 +95,8 @@ jobs:
           # -a: preserve symlinks (agent-rootfs sbin/* -> busybox links dangle on the host)
           cp -a smolvm-base/. out/
           cp tray/smolvm-tray* out/
+          # some dist files are root-only (000/400); make everything readable for zip
+          chmod -R u+rwX,go+rX out/ || true
           cp kite.smolvmachine out/ 2>/dev/null || true
           cat > out/README-KITE.txt <<'EOF'
           smolvm kite bundle
