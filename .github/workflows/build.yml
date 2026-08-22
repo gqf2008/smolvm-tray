@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: smolvm-tray-windows-x64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            name: smolvm-tray-macos-arm64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: smolvm-tray-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux build deps
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libfontconfig1-dev
+      - name: Build (release)
+        run: cargo build --release --locked
+      - name: Test
+        run: cargo test --locked
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            target/release/smolvm-tray
+            target/release/smolvm-tray.exe
+          if-no-files-found: error

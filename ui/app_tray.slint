@@ -1,0 +1,48 @@
+// Full menu + reactive state, built against Slint 1.17.1 SystemTrayIcon.
+export component AppTray inherits SystemTrayIcon {
+    in-out property <image> tray_icon;
+    in-out property <string> tray_tooltip: "smolvm 服务台";
+    in-out property <string> list_kite_vm: "Kite VM — ?";
+    in-out property <string> list_mcp_port: "MCP 入站端口 (8090) — ?";
+    in-out property <string> list_mcp_loop: "MCP 循环 — ?";
+    in-out property <string> list_cdp_port: "CDP 入站端口 (9222) — ?";
+    in-out property <string> list_cdp_loop: "CDP 循环 — ?";
+    in-out property <bool> can_open_cdp: false;
+    in-out property <bool> can_open_mcp: false;
+    in-out property <bool> can_restart_chromium: false;
+    in-out property <bool> autostart_checked: false;
+
+    callback action-start();
+    callback action-stop();
+    callback action-open-cdp();
+    callback action-open-mcp();
+    callback action-restart-chromium();
+    callback action-open-logs();
+    callback action-toggle-autostart();
+    callback action-exit();
+    callback tray-clicked();
+
+    icon: root.tray_icon;
+    tooltip: root.tray_tooltip;
+    title: "smolvm 服务台";
+    clicked => { root.tray-clicked(); }
+
+    Menu {
+        MenuItem { title: root.list_kite_vm; enabled: false; }
+        MenuItem { title: root.list_mcp_port; enabled: false; }
+        MenuItem { title: root.list_mcp_loop; enabled: false; }
+        MenuItem { title: root.list_cdp_port; enabled: false; }
+        MenuItem { title: root.list_cdp_loop; enabled: false; }
+        MenuSeparator {}
+        MenuItem { title: "▶ 一键启动全部"; activated => { root.action-start(); } }
+        MenuItem { title: "⏹ 一键停止全部"; activated => { root.action-stop(); } }
+        MenuSeparator {}
+        MenuItem { title: "打开 CDP 控制台 (9222)"; enabled: root.can_open_cdp; activated => { root.action-open-cdp(); } }
+        MenuItem { title: "打开 MCP 端点 (8090)"; enabled: root.can_open_mcp; activated => { root.action-open-mcp(); } }
+        MenuItem { title: "重启 CDP 浏览器"; enabled: root.can_restart_chromium; activated => { root.action-restart-chromium(); } }
+        MenuSeparator {}
+        MenuItem { title: "打开日志目录"; activated => { root.action-open-logs(); } }
+        MenuItem { title: "开机自动启动"; checked: root.autostart_checked; activated => { root.action-toggle-autostart(); } }
+        MenuItem { title: "退出（不停止服务）"; activated => { root.action-exit(); } }
+    }
+}
